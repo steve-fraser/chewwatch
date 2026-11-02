@@ -83,7 +83,7 @@ substitution from the environment (docker-compose loads `.env` automatically).
 | `sampling.count` / `window_seconds` | `5` / `10` | Frames per event and the spread |
 | `alerts.cooldown_minutes` | `8` | Per-camera alert cooldown |
 | `alerts.ntfy.topic` | — | **Pick a long random name — topics are public unless your server has auth.** |
-| `storage.retention_days` | `30` | Frame folders older than this are pruned (JSONL log is kept) |
+| `storage.retention_days` | `30` | Frame folders older than this are pruned — at startup and every 12 h while running (JSONL log is kept) |
 
 ### Counter checks
 

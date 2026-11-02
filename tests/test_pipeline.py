@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import UTC, datetime
+import os
+from datetime import UTC, datetime, timedelta
 
 import aresponses
 
@@ -283,3 +284,49 @@ async def test_counter_cooldown_shares_with_chewing(tmp_path, aresponses):
     assert records[0]["outcome"] == "alert"
     assert records[1]["outcome"] == "cooldown"
     assert ntfy["body"]  # exactly one push for both events
+
+
+async def test_pruning_repeats_while_service_runs(tmp_path, monkeypatch):
+    """Startup is not enough: folders that go stale *while the service is up*
+    must be pruned too — otherwise a long-lived container fills data/ forever.
+    """
+    service, _ = _service(tmp_path)
+    release = asyncio.Event()
+
+    class IdleListener(FakeListener):
+        async def start(self) -> None:
+            pass
+
+        async def run_until_stopped(self) -> None:
+            await release.wait()
+
+        async def stop(self) -> None:
+            pass
+
+    service._listener = IdleListener([])  # noqa: SLF001 - idle lifecycle fake
+    monkeypatch.setattr(ChewWatch, "PRUNE_INTERVAL_SECONDS", 0.05)
+
+    store = service.store
+    old_stamp = (datetime.now(UTC) - timedelta(days=40)).timestamp()
+    frame = Frame(index=1, captured_at=datetime.now(UTC), jpeg=JPEG)
+
+    # already stale before startup — the startup prune handles this one
+    stale_at_start = store.save_frames("Yard", datetime.now(UTC), [frame])
+    os.utime(stale_at_start, (old_stamp, old_stamp))
+
+    run_task = asyncio.get_running_loop().create_task(service.run())
+    await asyncio.sleep(0.1)  # let run() start and the startup prune happen
+
+    # goes stale *after* startup — only the periodic prune can remove it
+    stale_later = store.save_frames("Yard", datetime.now(UTC), [frame])
+    os.utime(stale_later, (old_stamp, old_stamp))
+
+    for _ in range(20):  # wait up to ~1s for the interval prune
+        if not stale_later.exists():
+            break
+        await asyncio.sleep(0.05)
+    release.set()
+    await run_task
+
+    assert not stale_at_start.exists(), "startup prune did not run"
+    assert not stale_later.exists(), "periodic prune did not run while up"

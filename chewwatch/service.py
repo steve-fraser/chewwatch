@@ -46,10 +46,13 @@ class ChewWatch:
             self._config.classifier.threshold,
             self._config.alerts.cooldown_minutes,
         )
+        pruner = asyncio.get_running_loop().create_task(self._prune_periodically())
         try:
             await self._listener.start()
             await self._listener.run_until_stopped()
         finally:
+            pruner.cancel()
+            await asyncio.gather(pruner, return_exceptions=True)
             # runs even when start() fails (bad auth, console unreachable) so
             # the Protect client's aiohttp session is always closed
             await self._listener.stop()
@@ -57,6 +60,19 @@ class ChewWatch:
     def request_stop(self) -> None:
         """Ask the service to shut down (safe from signal handlers)."""
         self._listener.request_stop()
+
+    #: how often frame-retention pruning re-runs while the service is up
+    PRUNE_INTERVAL_SECONDS = 12 * 60 * 60
+
+    async def _prune_periodically(self) -> None:
+        """Re-prune on an interval so a long-running process keeps honouring
+        retention_days — a startup-only prune lets data/ grow forever."""
+        while True:
+            await asyncio.sleep(self.PRUNE_INTERVAL_SECONDS)
+            try:
+                self._store.prune(self._config.storage.retention_days)
+            except Exception:  # noqa: BLE001 - a failed prune must not kill the watchdog
+                _LOGGER.exception("Retention prune failed; trying again at the next interval")
 
     # -------------------------------------------------------------- backfill
 
