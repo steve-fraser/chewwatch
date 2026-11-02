@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+data/
+.env
+tests/
+Dockerfile
+docker-compose.yml
+README.md

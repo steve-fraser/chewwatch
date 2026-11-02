@@ -1,0 +1,4 @@
+# ChewWatch runtime dependencies.
+# uiprotect pulls in aiohttp, pydantic and websockets.
+uiprotect>=25.0.0,<26
+PyYAML>=6.0

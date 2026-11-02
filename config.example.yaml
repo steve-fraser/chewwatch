@@ -1,0 +1,54 @@
+# ChewWatch configuration.
+# Secrets: use ${ENV_VAR} or ${ENV_VAR:-default} substitution and keep the real
+# values in an untracked .env file (see .env.example) or your environment.
+
+protect:
+  host: "192.168.1.10"          # your UniFi OS console (UDM/UNVR/CloudKey)
+  port: 443
+  api_key: "${PROTECT_API_KEY}" # Settings → Integrations → API Key
+                                # (needs read access to cameras + events)
+  # Optional local Protect user. When set, snapshots are taken through the
+  # private API with sampling.snapshot_width control; otherwise snapshots
+  # use the public Integration API (sampling.snapshot_high_quality).
+  username: ""
+  password: ""
+  verify_ssl: false             # consoles ship a self-signed cert by default
+  # Cameras to watch: names, ids or MAC addresses. Empty list = all cameras.
+  cameras:
+    - "Living Room"
+    - "Back Yard"
+  # Optional: cameras where the dog is not allowed on counters/tables — the
+  # model is also asked "is the dog on a counter or other elevated surface?".
+  # counter_cameras:
+  #   - "Kitchen"
+
+classifier:
+  base_url: "https://llm.kimchi.dev/openai/v1"
+  model: "glm-5.3-flash"        # cheap vision model; also: kimi-k3, minimax-m3
+  api_key: "${KIMCHI_API_KEY}"  # https://app.kimchi.dev/settings → API Keys
+  threshold: 0.7                # alert only at/above this confidence
+  ignore_toys: true             # toy/bone chewing is logged but never alerts
+  request_timeout_seconds: 120
+
+sampling:
+  count: 5                      # frames per event (4-6 recommended)
+  window_seconds: 10            # spread over ~10s
+  snapshot_width: 1600          # used when protect.username is set
+  snapshot_high_quality: false   # used with api-key-only auth
+  max_concurrent_per_camera: 1  # skip overlapping events per camera
+
+alerts:
+  cooldown_minutes: 8           # one alert per chewing session per camera
+  ntfy:
+    server: "https://ntfy.sh"   # or your self-hosted ntfy
+    topic: "${NTFY_TOPIC}"      # long random name — topics are public!
+    token: "${NTFY_TOKEN}"      # optional access token; empty for none
+    priority: "high"
+
+storage:
+  data_dir: "/data"             # decisions.jsonl + frames/ (docker volume)
+  retention_days: 30
+
+ui:
+  enabled: true                 # read-only viewer: browse events + frames
+  port: 8080                    # http://<host>:8080 (open on the LAN)

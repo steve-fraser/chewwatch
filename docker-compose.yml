@@ -1,0 +1,29 @@
+services:
+  chewwatch:
+    build: .
+    image: chewwatch:latest
+    container_name: chewwatch
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Explicit ${VAR} interpolation is the portable form: docker compose and
+      # podman-compose both resolve it from the project .env file. Relying on
+      # env_file alone has been unreliable in some podman-compose versions
+      # (containers/podman-compose#491, #458, #1287).
+      PROTECT_API_KEY: ${PROTECT_API_KEY:-}
+      KIMCHI_API_KEY: ${KIMCHI_API_KEY:-}
+      NTFY_TOPIC: ${NTFY_TOPIC:-}
+      NTFY_TOKEN: ${NTFY_TOKEN:-}
+      TZ: ${TZ:-Europe/London}
+      # uiprotect (hybrid auth) would persist its session token under the XDG
+      # config dir (~/.config) — unwritable for the container's system user.
+      # Current code disables token persistence; pointing the XDG dirs at tmp
+      # also keeps older images from crashing on PermissionError.
+      XDG_CONFIG_HOME: /tmp/xdg-config
+      XDG_CACHE_HOME: /tmp/xdg-cache
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+      - ./data:/data
+    ports:
+      # Read-only viewer UI (recent events + frames); disable via ui.enabled
+      - "8080:8080"

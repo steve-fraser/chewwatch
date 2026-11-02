@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Runtime state
+data/
+.env
+
+# Local config (copy from config.example.yaml)
+config.yaml
