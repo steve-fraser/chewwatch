@@ -98,6 +98,8 @@ _PAGE = """<!doctype html>
 "use strict";
 let hours = 3, camera = "", outcome = "";
 const $ = (id) => document.getElementById(id);
+// injected by the server from ui.refresh_seconds (0 = auto-refresh off)
+const REFRESH_MS = __REFRESH_SECONDS__ * 1000;
 
 function esc(s) {
   const d = document.createElement("div");
@@ -241,6 +243,18 @@ function pollBackfill() {
 }
 
 load();
+
+// Auto-refresh: serial ticks (no overlapping loads), paused in hidden tabs.
+async function refreshTick() {
+  try {
+    if (!document.hidden) await load();
+  } catch (e) {
+    console.warn("auto-refresh failed, retrying next interval", e);
+  } finally {
+    setTimeout(refreshTick, REFRESH_MS);
+  }
+}
+if (REFRESH_MS > 0) setTimeout(refreshTick, REFRESH_MS);
 </script>
 </body>
 </html>
@@ -317,9 +331,12 @@ def _list_frames(store: DecisionStore, record: dict) -> list[str]:
 class UiApp:
     """Handlers for the read-only viewer."""
 
-    def __init__(self, store: DecisionStore, backfill=None) -> None:
+    def __init__(
+        self, store: DecisionStore, backfill=None, refresh_seconds: float = 30.0
+    ) -> None:
         self._store = store
         self._backfill = backfill  # the running service, when wired
+        self._refresh_seconds = refresh_seconds
 
     def build(self) -> web.Application:
         app = web.Application()
@@ -333,7 +350,8 @@ class UiApp:
         return app
 
     async def index(self, request: web.Request) -> web.Response:
-        return web.Response(text=_PAGE, content_type="text/html")
+        page = _PAGE.replace("__REFRESH_SECONDS__", repr(float(self._refresh_seconds)))
+        return web.Response(text=page, content_type="text/html")
 
     async def api_events(self, request: web.Request) -> web.Response:
         records = self._store.load_records(self._store.log_path)
@@ -431,16 +449,20 @@ class UiApp:
         )
 
 
-def build_app(store: DecisionStore, backfill=None) -> web.Application:
+def build_app(
+    store: DecisionStore, backfill=None, refresh_seconds: float = 30.0
+) -> web.Application:
     """The read-only viewer application (``backfill`` = the running service)."""
-    return UiApp(store, backfill).build()
+    return UiApp(store, backfill, refresh_seconds).build()
 
 
 async def start_ui(
     config: UiConfig, store: DecisionStore, backfill=None
 ) -> web.AppRunner:
     """Serve the viewer on 0.0.0.0:<port>; caller owns the runner's cleanup."""
-    runner = web.AppRunner(build_app(store, backfill))
+    runner = web.AppRunner(
+        build_app(store, backfill, refresh_seconds=config.refresh_seconds)
+    )
     await runner.setup()
     site = web.TCPSite(runner, host="0.0.0.0", port=config.port)
     await site.start()

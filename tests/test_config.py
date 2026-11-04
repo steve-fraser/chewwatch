@@ -166,15 +166,22 @@ def test_ui_defaults_and_parse(tmp_path):
     cfg = load_config(_write(tmp_path, FULL_YAML))
     assert cfg.ui.enabled is True
     assert cfg.ui.port == 8080
-    content = FULL_YAML + "\nui:\n  enabled: false\n  port: 9090\n"
+    assert cfg.ui.refresh_seconds == 30.0
+    content = FULL_YAML + "\nui:\n  enabled: false\n  port: 9090\n  refresh_seconds: 5\n"
     cfg2 = load_config(_write(tmp_path, content))
     assert cfg2.ui.enabled is False
     assert cfg2.ui.port == 9090
+    assert cfg2.ui.refresh_seconds == 5.0
 
 
 def test_ui_port_validation(tmp_path):
     with pytest.raises(ConfigError, match="ui.port"):
         load_config(_write(tmp_path, FULL_YAML + "\nui:\n  port: 80\n"))
+
+
+def test_ui_refresh_seconds_validation(tmp_path):
+    with pytest.raises(ConfigError, match="ui.refresh_seconds"):
+        load_config(_write(tmp_path, FULL_YAML + "\nui:\n  refresh_seconds: -5\n"))
 
 
 def test_example_config_parses(monkeypatch):

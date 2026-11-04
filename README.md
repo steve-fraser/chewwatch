@@ -118,7 +118,8 @@ or one `.zip` per event).
 - No auth: it is meant for your home LAN. Don't expose the port to the
   internet.
 - `ui.enabled: false` turns it off; `ui.port` changes the port (compose maps
-  `8080:8080`).
+  `8080:8080`); `ui.refresh_seconds` sets how often the page auto-reloads
+  the event list (default `30`, `0` = off — pauses while the tab is hidden).
 - Events older than `storage.retention_days` keep their log lines but their
   frames are pruned — the UI lists them without thumbnails.
 

@@ -91,6 +91,8 @@ class UiConfig:
 
     enabled: bool = True
     port: int = 8080
+    # browser auto-reload of the event list (seconds); 0 = off
+    refresh_seconds: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -158,6 +160,7 @@ def _build(root: dict[str, Any]) -> ChewWatchConfig:
         ui=UiConfig(
             enabled=bool(ui_raw.get("enabled", True)),
             port=int(ui_raw.get("port", 8080)),
+            refresh_seconds=float(ui_raw.get("refresh_seconds", 30.0)),
         ),
     )
     _validate(cfg)
@@ -187,8 +190,8 @@ def _validate(cfg: ChewWatchConfig) -> None:
         errors.append("classifier.model is required")
 
     s = cfg.sampling
-    if not 2 <= s.count <= 12:
-        errors.append("sampling.count must be within 2 .. 12")
+    if not 2 <= s.count <= 50:
+        errors.append("sampling.count must be within 2 .. 50")
     if s.window_seconds <= 0:
         errors.append("sampling.window_seconds must be > 0")
     if s.snapshot_width < 320:
@@ -209,6 +212,8 @@ def _validate(cfg: ChewWatchConfig) -> None:
         errors.append("storage.retention_days must be >= 0")
     if not 1024 <= cfg.ui.port <= 65535:
         errors.append("ui.port must be within 1024 .. 65535")
+    if cfg.ui.refresh_seconds < 0:
+        errors.append("ui.refresh_seconds must be >= 0 (0 disables auto-refresh)")
 
     if errors:
         raise ConfigError("Invalid configuration:\n  - " + "\n  - ".join(errors))

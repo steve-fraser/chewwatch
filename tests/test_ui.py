@@ -57,8 +57,8 @@ def _seed(
     return record
 
 
-async def _request(store: DecisionStore, path: str):
-    app = build_app(store)
+async def _request(store: DecisionStore, path: str, *, refresh_seconds: float = 30.0):
+    app = build_app(store, refresh_seconds=refresh_seconds)
     server = TestServer(app)
     client = TestClient(server)
     await client.start_server()
@@ -76,6 +76,18 @@ async def test_index_renders(tmp_path):
     assert headers["Content-Type"].startswith("text/html")
     assert b"ChewWatch" in body
     assert b"/api/events" in body
+
+
+async def test_index_injects_refresh_interval(tmp_path):
+    status, body, _ = await _request(_store(tmp_path), "/", refresh_seconds=17)
+    assert status == 200
+    assert b"REFRESH_MS = 17.0" in body
+    assert b"__REFRESH_SECONDS__" not in body  # placeholder fully substituted
+
+
+async def test_index_refresh_disabled_with_zero(tmp_path):
+    _, body, _ = await _request(_store(tmp_path), "/", refresh_seconds=0)
+    assert b"REFRESH_MS = 0.0" in body
 
 
 async def test_api_window_default_is_three_hours(tmp_path):

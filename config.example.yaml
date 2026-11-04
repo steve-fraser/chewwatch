@@ -52,3 +52,4 @@ storage:
 ui:
   enabled: true                 # read-only viewer: browse events + frames
   port: 8080                    # http://<host>:8080 (open on the LAN)
+  refresh_seconds: 30           # browser auto-reloads the event list; 0 = off
